@@ -2,67 +2,74 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Feeds</title>
+    <title>Title</title>
+     <style>
+    body{
+    background-color:blue;
+    background-size: cover;
+    background-position: center;
+    color: black;
+    background-image:url("https://4.bp.blogspot.com/-BS3sBCWg4R4/VWYAEX7bNHI/AAAAAAABjLs/dmoev74xbmI/s0/Coding_with_Style-2_uhd.jpg");
+    background-repeat:no-repeat;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 20px;
+    }
+    input[type="submit"]
+    {
+    width:15em;
+    height:2.5em;
+    color:white;
+    background:orange;
+    border-radius:8px;
+    font-size:15px;
+    }
+    input[type="text"]
+    {
+    padding:6px 10px;
+    margin:8px 0;
+    box-sizing:border-box;
+    }
+    input[type="text"]
+    {
+    padding:6px 10px;
+    margin:8px 0;
+    box-sizing:border-box;
+    }
+    label
+    {
+    display:inline-block;
+    clear:left;
+    width:100px;
+    text-align:left;
+    }
+    </style>
 </head>
-<style>
-    body {
-        text-align: center;
-        background: burlywood;
-        font-size: medium;
-    }
-    input[type="submit"] {
-           background: red;
-            color:white;
-            border: 0px;
-            font-size: smaller;
-            border-radius: 15%;
-            font-size: 18px;
-            padding: 5px;
-            margin-top: 10px;
-            margin-bottom: 10px;
-            margin-right: 16px;
-    }
-    input[type="text"] {
-            font-size: smaller;
-            width: 250px;
-            height: 25px;
-            background: khaki;
-            border: 0px;
-            padding: 10px 10px 10px 10px;
-            margin-bottom: 10px;
-    }
-        h1 {
-            color: firebrick;
-            font-size: 55px;
-        }
-        h3 {
-            color: saddlebrown;
-            font-size: 35px;
-    }
-        p {
-            font-size: 22px;
-             color: saddlebrown;
-     }
-</style>
 <body>
-<form method="post"  action="/post/">
-        {% csrf_token%}
-       <input type="submit" class="btn-default btn"  value="Create post">
-</form>
-<h1>Feeds</h1>
-{% for post in posts %}
-<p>posts</p>
-<h3>
-    Posted by : {{post.user.username}}
-</h3>
- <p>[{{ post.created_on }}]</p>
-<img style="display:inline-block; width:350px; height:300px;"
+    <div style="float: right; padding: 20px;  ">
+        <form action="/logout/" method="POST">
+            {% csrf_token %}
+             <input type="submit" class="btn btn-default" value="Logout">
+        </form>
+    </div>
+
+    <form method="post" action="/post/">
+        {% csrf_token %}
+        <input type="submit" class="btn-default btn" value="Create Post">
+    </form>
+
+
+    {% for post in posts %}
+
+
+        <h3> Posted by: {{ post.user.username }} </h3>
+        <p>[{{ post.created_on }}]</p>
+        <img style="display:inline-block; width:350px; height:300px;"
              src="{{ post.image_url }}" /><br>
         <span  style="display:inline-block;">{{ post.caption }}</span><br/><br/>
         <div style="display:inline-block">
             {{ post.like_count }} likes this
         </div>
-<div style="display:inline-block">
+        <div style="display:inline-block">
             <form method="POST" action="/like/">
               {% csrf_token %}
               <input type="hidden" name="post" value="{{ post.id }}" />
@@ -84,12 +91,22 @@
             </form>
         </div>
 
+
         <div>
             {% for comment in post.comments %}
                 <p><b>{{ comment.user.username }} [{{ comment.created_on }}]:</b> {{ comment.comment_text }}</p>
+                   <form method="POST" action="/upvote/">
+              {% csrf_token %}
+
+              <input type="hidden" name="id" value="{{ comment.id }}">
+
+              <input type="submit" class="btn btn-default" value="Upvote">
+
+          </form><span>Upvotes: {{comment.upvote_num}}</span>
+
             {% endfor %}
         </div>
-        <hr>
+
 
     {% endfor %}
 </body>

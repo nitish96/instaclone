@@ -1,52 +1,32 @@
-
-# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-
-from django.shortcuts import render
-
-# Create your views here.
 from django.shortcuts import render, redirect
-
-
-from forms import SignUpForm, LoginForm,PostForm,LikeForm, CommentForm
-from datetime import datetime
-from models import UserModel, SessionToken,PostModel,LikeModel, CommentModel
-
+from forms import SignUpForm, LoginForm, PostForm, LikeForm, CommentForm, UpvoteForm
+from models import UserModel, SessionToken, PostModel, LikeModel, CommentModel
 from django.contrib.auth.hashers import make_password, check_password
-from datetime import timedelta
-from django.utils import timezone
 from instaclone.settings import BASE_DIR
 from imgurpython import ImgurClient
-from paralleldots.config import get_api_key
+from datetime import timedelta
+from django.utils import timezone
 import requests
-import json
 
-
-
-
-
-
-# Create your views here.
 
 def signup_view(request):
-   if request.method == "POST":
-       form = SignUpForm(request.POST)
-       print request.body
-       if form.is_valid():
-           username = form.cleaned_data['username']
-           email = form.cleaned_data['email']
-           password = form.cleaned_data['password']
-           print 'Here'
-           user = UserModel( password=make_password(password), email=email, username=username)
-           user.save()
-       return render(request, 'success.html')
-   elif request.method == "GET":
-       form = SignUpForm()
-       today = datetime.now()
+    if request.method == "POST":
+        form = SignUpForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            name = form.cleaned_data['name']
+            email = form.cleaned_data['email']
+            password = form.cleaned_data['password']
+            # saving data to DB
+            user = UserModel(name=name, password=make_password(password), email=email, username=username)
+            user.save()
+            return render(request, 'success.html')
+            # return redirect('login/')
+    else:
+        form = SignUpForm()
 
-
-   return render(request, 'index.html', { 'today': today,  'form': form})
-
+    return render(request, 'index.html', {'form': form})
 
 
 def login_view(request):
@@ -54,16 +34,11 @@ def login_view(request):
     if request.method == "POST":
         form = LoginForm(request.POST)
         if form.is_valid():
-            print "here"
             username = form.cleaned_data.get('username')
             password = form.cleaned_data.get('password')
-            print UserModel.objects.all()
             user = UserModel.objects.filter(username=username).first()
-            print user
 
             if user:
-                # Check for the password
-                print 'A'
                 if check_password(password, user.password):
                     token = SessionToken(user=user)
                     token.create_token()
@@ -77,63 +52,8 @@ def login_view(request):
     elif request.method == 'GET':
         form = LoginForm()
 
-    response_data['form']= form
+    response_data['form'] = form
     return render(request, 'login.html', response_data)
-
-def feed_view(request):
-    return render(request, 'feed.html')
-
-
-
-
-def check_validation(request):
-    if request.COOKIES.get('session_token'):
-        session = SessionToken.objects.filter(session_token=request.COOKIES.get('session_token')).first()
-        if session:
-            return session.user
-    else:
-        return None
-
-
-def post_view(request):
-    user = check_validation(request)
-
-    if user:
-        if request.method == 'POST':
-
-          form = PostForm(request.POST, request.FILES)
-        if form.is_valid():
-            image = form.cleaned_data.get('image')
-            caption = form.cleaned_data.get('caption')
-            post = PostModel(user=user,image=image,caption=caption)
-            post.save()
-            path = str(BASE_DIR + "/" + post.image.url)
-            client = ImgurClient('8fd0103958ccceb', 'aa73c860636e25e381ec473bd76fb4f2d3ca1adb')
-            post.image_url = client.upload_from_path(path, anon=True)['link']
-            post.save()
-            return redirect('/feed/')
-        else:
-          form = PostForm()
-        return render(request, 'post.html', {'form': form})
-    else:
-        return redirect('/login/')
-
-def feed_view(request):
-    user = check_validation(request)
-    if user:
-
-        posts = PostModel.objects.all().order_by('created_on')
-
-        for post in posts:
-            existing_like = LikeModel.objects.filter(post_id=post.id, user=user).first()
-            if existing_like:
-                post.has_liked = True
-
-
-        return render(request, 'feed.html', {'posts': posts})
-    else:
-
-        return redirect('/login/')
 
 
 def like_view(request):
@@ -142,37 +62,90 @@ def like_view(request):
         form = LikeForm(request.POST)
         if form.is_valid():
             post_id = form.cleaned_data.get('post').id
-            existing_like = LikeModel.objects.filter(post_id=post_id, user=user).first()
-            if not existing_like:
-                LikeModel.objects.create(post_id=post_id, user=user)
-            else:
-                existing_like.delete()
+            posts = PostModel.objects.all().order_by('-created_on')
+            for post in posts:
+
+                existing_like = LikeModel.objects.filter(post_id=post_id, user=user).first()
+                if existing_like:
+                    post.has_liked = True
+
+                if not existing_like:
+                    LikeModel.objects.create(post_id=post_id, user=user)
+                else:
+                    existing_like.delete()
+
+                return redirect('/feed/')
+
+
+        else:
             return redirect('/feed/')
+
+
     else:
         return redirect('/login/')
 
+
+def feed_view(request):
+    user = check_validation(request)
+    if user:
+        posts = PostModel.objects.all().order_by('created_on')
+        return render(request, 'feed.html', {'posts': posts})
+    else:
+        return redirect('/login/')
+
+
+def post_view(request):
+    user = check_validation(request)
+
+    if user:
+        if request.method == 'POST':
+            form = PostForm(request.POST, request.FILES)
+            if form.is_valid():
+                image = form.cleaned_data.get('image')
+                caption = form.cleaned_data.get('caption')
+                post = PostModel(user=user, image=image, caption=caption)
+                post.save()
+
+                path = str(BASE_DIR + "\\" + post.image.url)
+
+                client = ImgurClient('b05a87fc2d9b16a', 'e40bae7fc06026074022bcac6b4f370fe4963cba')
+                post.image_url = client.upload_from_path(path,anon=True)['link']
+                post.save()
+
+                return redirect('/feed/')
+
+        else:
+            form = PostForm()
+        return render(request, 'post.html', {'form' : form})
+    else:
+        return redirect('/login/')
+
+
 def comment_view(request):
-    api_key = "R8BHcxy8Dv01h5Blh5BVBLcvxNy2tD6JRqtlSkwzXVdfow"
-
-
-    url = "http://apis.paralleldots.com/sentiment"
     user = check_validation(request)
     if user and request.method == 'POST':
-       form = CommentForm(request.POST)
-
-       if  form.is_valid():
+        form = CommentForm(request.POST)
+        if form.is_valid():
             post_id = form.cleaned_data.get('post').id
+            print post_id
             comment_text = form.cleaned_data.get('comment_text')
-            r = requests.get(url, params={"apikey": api_key, "comment": comment_text})
-            print r
             comment = CommentModel.objects.create(user=user, post_id=post_id, comment_text=comment_text)
             comment.save()
+
+            apikey = '39JDDYmgIv5c1FPr54X0ozcQ6L8nnk29DejqgZ2h7aY'
+            request_url =('https://apis.paralleldots.com/sentiment?sentence1=%s&apikey=%s') % (comment_text, apikey)
+            print 'POST request url : %s' % (request_url)
+            sentiment = requests.get(request_url, verify=False).json()
+            sentiment_value = sentiment['sentiment']
+            print sentiment_value
+            if (sentiment_value < 0.6 and max(value_list) > 0.7):
+                print 'dirty image'
+
             return redirect('/feed/')
-       else:
+        else:
             return redirect('/feed/')
     else:
         return redirect('/login')
-
 
 # For validating the session
 def check_validation(request):
@@ -184,3 +157,44 @@ def check_validation(request):
                 return session.user
     else:
         return None
+
+def logout_view(request):
+
+        user = check_validation(request)
+
+        if user is not None:
+            latest_sessn = SessionToken.objects.filter(user=user).last()
+            if latest_sessn:
+                latest_sessn.delete()
+                return redirect("/login/")
+
+
+# method to create upvote for comments
+def upvote_view(request):
+    user = check_validation(request)
+    comment = None
+
+    print ("upvote view")
+    if user and request.method == 'POST':
+
+        form = UpvoteForm(request.POST)
+        if form.is_valid():
+
+            comment_id = int(form.cleaned_data.get('id'))
+
+            comment = CommentModel.objects.filter(id=comment_id).first()
+            print ("upvoted not yet")
+
+            if comment is not None:
+                # print ' unliking post'
+                print ("upvoted")
+                comment.upvote_num += 1
+                comment.save()
+                print (comment.upvote_num)
+            else:
+                print ('stupid mistake')
+                #liked_msg = 'Unliked!'
+
+        return redirect('/feed/')
+    else:
+        return redirect('/feed/')
